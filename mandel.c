@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <sys/ioctl.h>
 #include <string.h>
+#include <termios.h>
 #include <unistd.h>
 
 #define ITERATION_DEPTH 1000
@@ -84,10 +85,15 @@ bool map_converges(struct Complex c)
   return false;
 }
 
+double scale_step_size(double step_size, double zoom)
+{
+ return step_size / pow(3., zoom);
+}
+
 struct Complex cell_coordinate(size_t frame_index, double origin_x, double origin_y, size_t zoom)
 {
   const struct Complex origin = {origin_x, origin_y};
-  const double step_size =  0.05 / (zoom + 1);
+  const double step_size = scale_step_size(0.05, zoom);
   const int y = frame_index / ws_col;
   const int x = frame_index - y * ws_col;
   const int relative_x = x - ws_col / 2;
@@ -107,8 +113,64 @@ void update_frame(char frame[], double origin_x, double origin_y, size_t zoom)
   }
 }
 
+void handle_user_input(char input, double *origin_x, double *origin_y, size_t *zoom) {
+  const double translation_default = 0.5;
+  if (input == 'j')
+  {
+    *origin_y += scale_step_size(translation_default, *zoom);
+  }
+  else if (input == 'k')
+  {
+    *origin_y -= scale_step_size(translation_default, *zoom);
+  }
+  else if (input == 'h')
+  {
+    *origin_x -= scale_step_size(translation_default, *zoom);
+  }
+  else if (input == 'l')
+  {
+    *origin_x += scale_step_size(translation_default, *zoom);
+  }
+  else if (input == '+')
+  {
+    *zoom = *zoom + 1;
+  }
+  else if (input == '-')
+  {
+    if (*zoom != 0)
+    {
+      *zoom = *zoom - 1;
+    }
+  }
+  else if (input == 'r')
+  {
+    *zoom = 0;
+    *origin_x = 0;
+    *origin_y = 0;
+  }
+}
+
 int main(int argc, char *argv[])
 {
+  // ----------------------------------------------------------------------------------------------
+  static struct termios oldt, newt;
+
+  /*tcgetattr gets the parameters of the current terminal
+  STDIN_FILENO will tell tcgetattr that it should write the settings
+  of stdin to oldt*/
+  tcgetattr(STDIN_FILENO, &oldt);
+  /*now the settings will be copied*/
+  newt = oldt;
+
+  /*ICANON normally takes care that one line at a time will be processed
+  that means it will return if it sees a "\n" or an EOF or an EOL*/
+  newt.c_lflag &= ~(ICANON);          
+
+  /*Those new settings will be set to STDIN
+  TCSANOW tells tcsetattr to change attributes immediately. */
+  tcsetattr(STDIN_FILENO, TCSANOW, &newt);
+  // ----------------------------------------------------------------------------------------------
+
   struct winsize w;
   ioctl(STDOUT_FILENO, TIOCGWINSZ, &w);
   ws_col = w.ws_col;
@@ -117,8 +179,28 @@ int main(int argc, char *argv[])
   buffer_size = ws_col * ws_row;
   char frame[buffer_size];
   clear_screen();
-  // TODO make screen not static
-  update_frame(frame, 0, -1, 2);
+  double origin_x = 0;
+  double origin_y = 0;
+  size_t zoom = 1;
+  update_frame(frame, origin_x, origin_y, zoom);
   draw_frame(frame);
+  bool quit = false;
+  while (!quit)
+  {
+    const char input = getchar();
+    if (input == 'q')
+    {
+      quit = true;
+    }
+    else {
+      handle_user_input(input, &origin_x, &origin_y, &zoom);
+    }
+    update_frame(frame, origin_x, origin_y, zoom);
+    draw_frame(frame);
+  }
+  // ----------------------------------------------------------------------------------------------
+  /*restore the old settings*/
+  tcsetattr(STDIN_FILENO, TCSANOW, &oldt);
+  // ----------------------------------------------------------------------------------------------
   return 0;
 }

@@ -4,7 +4,7 @@ Based on definition of the [Mandelbrot Set](https://en.wikipedia.org/wiki/Mandel
 
 ## Build
 
-`gcc -o mandel mandel.c`
+`gcc -lm -o mandel mandel.c`
 
 ## Run
 
