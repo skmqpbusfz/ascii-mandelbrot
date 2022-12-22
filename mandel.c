@@ -84,10 +84,10 @@ bool map_converges(struct Complex c)
   return false;
 }
 
-struct Complex cell_coordinate(size_t frame_index)
+struct Complex cell_coordinate(size_t frame_index, double origin_x, double origin_y, size_t zoom)
 {
-  const struct Complex origin = c_zero;
-  const double step_size = 0.05;
+  const struct Complex origin = {origin_x, origin_y};
+  const double step_size =  0.05 / (zoom + 1);
   const int y = frame_index / ws_col;
   const int x = frame_index - y * ws_col;
   const int relative_x = x - ws_col / 2;
@@ -96,10 +96,10 @@ struct Complex cell_coordinate(size_t frame_index)
   return coordinate;
 }
 
-void update_frame(char frame[])
+void update_frame(char frame[], double origin_x, double origin_y, size_t zoom)
 {
   for (int i = 0; i < buffer_size; ++i) {
-    if (map_converges(cell_coordinate(i))) {
+    if (map_converges(cell_coordinate(i, origin_x, origin_y, zoom))) {
       frame[i] = cell_occupied;
     } else {
       frame[i] = cell_empty;
@@ -118,7 +118,7 @@ int main(int argc, char *argv[])
   char frame[buffer_size];
   clear_screen();
   // TODO make screen not static
-  update_frame(frame);
+  update_frame(frame, 0, -1, 2);
   draw_frame(frame);
   return 0;
 }
