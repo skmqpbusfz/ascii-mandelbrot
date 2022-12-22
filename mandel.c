@@ -77,7 +77,7 @@ size_t map_converges(struct Complex c)
     z = map(z, c);
     const size_t index = n % convergence_cutoff;
     convergence_sample[index] = z;
-    if (n >= convergence_cutoff && sample_converges(convergence_sample, index)) {
+    if (n >= convergence_cutoff && sample_converges(convergence_sample, (index + 1) % convergence_cutoff)) {
       return n;
     }
   }
