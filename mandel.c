@@ -17,11 +17,10 @@ struct Complex {
 int ws_row;
 int ws_col;
 int buffer_size;
-// TODO devide cell into 10 cells and differentiate char based on density
-const char cell_occupied = '#';
 const char cell_empty = ' ';
+const char *illumination_dict = "@$#*!=;:~-,.";
 
-const size_t convergence_cutoff = ITERATION_DEPTH / 50;
+const size_t convergence_cutoff = ITERATION_DEPTH / 20;
 
 const struct Complex c_zero = {0, 0};
 
@@ -69,7 +68,7 @@ bool sample_converges(struct Complex sample[], size_t start)
 
 int count = 0;
 
-bool map_converges(struct Complex c)
+size_t map_converges(struct Complex c)
 {
   struct Complex z = c_zero;
   struct Complex convergence_sample[convergence_cutoff];
@@ -79,10 +78,10 @@ bool map_converges(struct Complex c)
     const size_t index = n % convergence_cutoff;
     convergence_sample[index] = z;
     if (n >= convergence_cutoff && sample_converges(convergence_sample, index)) {
-      return true;
+      return n;
     }
   }
-  return false;
+  return ITERATION_DEPTH + 1;
 }
 
 double scale_step_size(double step_size, double zoom)
@@ -104,11 +103,13 @@ struct Complex cell_coordinate(size_t frame_index, double origin_x, double origi
 
 void update_frame(char frame[], double origin_x, double origin_y, size_t zoom)
 {
+  const size_t illumincation_step_size = ITERATION_DEPTH / 12;
   for (int i = 0; i < buffer_size; ++i) {
-    if (map_converges(cell_coordinate(i, origin_x, origin_y, zoom))) {
-      frame[i] = cell_occupied;
-    } else {
+    size_t convergence_count = map_converges(cell_coordinate(i, origin_x, origin_y, zoom));
+    if (convergence_count > ITERATION_DEPTH) {
       frame[i] = cell_empty;
+    } else {
+      frame[i] = illumination_dict[convergence_count * 12 / ITERATION_DEPTH];
     }
   }
 }
