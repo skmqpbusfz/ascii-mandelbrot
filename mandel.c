@@ -22,8 +22,6 @@ const char cell_empty = ' ';
 
 const size_t convergence_cutoff = ITERATION_DEPTH / 50;
 
-const struct Complex c_zero = {0, 0};
-
 void draw_frame(char data[])
 {
   printf("\x1b[H");
@@ -59,34 +57,29 @@ bool sample_converges(struct Complex sample[], size_t start)
   const double start_radius = norm_squared(sample[start]);
   for (size_t i = 0; i < convergence_cutoff; ++i) {
     struct Complex c = sample[(start + i) % convergence_cutoff];
-    if (complex_invalid(c) || norm_squared(c) > start_radius) {
+    if (complex_invalid(c) || norm_squared(c) > start_radius)
       return false;
-    }
   }
   return true;
 }
 
-int count = 0;
-
 size_t map_converges(struct Complex c)
 {
-  struct Complex z = c_zero;
+  struct Complex z = {0, 0};
   struct Complex convergence_sample[convergence_cutoff];
-  for (size_t n = 0; n < ITERATION_DEPTH; ++n)
-  {
+  for (size_t n = 0; n < ITERATION_DEPTH; ++n) {
     z = map(z, c);
     const size_t index = n % convergence_cutoff;
     convergence_sample[index] = z;
-    if (n >= convergence_cutoff && sample_converges(convergence_sample, (index + 1) % convergence_cutoff)) {
+    if (n >= convergence_cutoff && sample_converges(convergence_sample, (index + 1) % convergence_cutoff))
       return n;
-    }
   }
   return ITERATION_DEPTH + 1;
 }
 
 double scale_step_size(double step_size, double zoom)
 {
- return step_size / pow(3., zoom);
+  return step_size / pow(3., zoom);
 }
 
 struct Complex cell_coordinate(size_t frame_index, double origin_x, double origin_y, size_t zoom)
@@ -109,7 +102,6 @@ char shade(size_t convergence_count, size_t convergence_min, size_t convergence_
     const size_t convergence_diff = convergence_max - convergence_min;
     shade_index = (convergence_count - convergence_min) * sizeof(shade_dict) / convergence_diff;
   }
-
   return shade_dict[shade_index];
 }
 
@@ -126,45 +118,30 @@ void update_frame(char frame[], double origin_x, double origin_y, size_t zoom)
       convergence_max = convergence_map[i];
   }
   for (int i = 0; i < buffer_size; ++i) {
-    if (convergence_map[i] > ITERATION_DEPTH) {
+    if (convergence_map[i] > ITERATION_DEPTH)
       frame[i] = cell_empty;
-    } else {
+    else
       frame[i] = shade(convergence_map[i], convergence_min, convergence_max);
-    }
   }
 }
 
 void handle_user_input(char input, double *origin_x, double *origin_y, size_t *zoom) {
   const double translation_default = 0.5;
   if (input == 'j')
-  {
     *origin_y += scale_step_size(translation_default, *zoom);
-  }
   else if (input == 'k')
-  {
     *origin_y -= scale_step_size(translation_default, *zoom);
-  }
   else if (input == 'h')
-  {
     *origin_x -= scale_step_size(translation_default, *zoom);
-  }
   else if (input == 'l')
-  {
     *origin_x += scale_step_size(translation_default, *zoom);
-  }
   else if (input == '+')
-  {
     *zoom = *zoom + 1;
-  }
-  else if (input == '-')
-  {
+  else if (input == '-') {
     if (*zoom != 0)
-    {
       *zoom = *zoom - 1;
-    }
   }
-  else if (input == 'r')
-  {
+  else if (input == 'r') {
     *zoom = 0;
     *origin_x = 0;
     *origin_y = 0;
@@ -174,6 +151,7 @@ void handle_user_input(char input, double *origin_x, double *origin_y, size_t *z
 int main(int argc, char *argv[])
 {
   // ----------------------------------------------------------------------------------------------
+  // Force terminal to pass keystrokes to program without pressing Enter
   static struct termios oldt, newt;
 
   /*tcgetattr gets the parameters of the current terminal
@@ -191,7 +169,6 @@ int main(int argc, char *argv[])
   TCSANOW tells tcsetattr to change attributes immediately. */
   tcsetattr(STDIN_FILENO, TCSANOW, &newt);
   // ----------------------------------------------------------------------------------------------
-
   struct winsize w;
   ioctl(STDOUT_FILENO, TIOCGWINSZ, &w);
   ws_col = w.ws_col;
@@ -206,17 +183,13 @@ int main(int argc, char *argv[])
   update_frame(frame, origin_x, origin_y, zoom);
   draw_frame(frame);
   bool quit = false;
-  while (!quit)
-  {
+  while (!quit) {
     const char input = getchar();
-    if (input == 'q')
-    {
+    if (input == 'q') {
       quit = true;
       break;
-    }
-    else {
+    } else
       handle_user_input(input, &origin_x, &origin_y, &zoom);
-    }
     update_frame(frame, origin_x, origin_y, zoom);
     draw_frame(frame);
   }
