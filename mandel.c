@@ -18,7 +18,6 @@ struct Complex {
 int ws_row;
 int ws_col;
 int buffer_size;
-const char cell_empty = ' ';
 
 const size_t convergence_cutoff = ITERATION_DEPTH / 50;
 
@@ -47,31 +46,12 @@ double norm_squared(struct Complex c)
   return c.r * c.r + c.c * c.c;
 }
 
-bool complex_invalid(struct Complex c)
-{
-  return isinf(c.r) || isinf(c.c) || isnan(c.r) || isnan(c.c);
-}
-
-bool sample_converges(struct Complex sample[], size_t start)
-{
-  const double start_radius = norm_squared(sample[start]);
-  for (size_t i = 0; i < convergence_cutoff; ++i) {
-    struct Complex c = sample[(start + i) % convergence_cutoff];
-    if (complex_invalid(c) || norm_squared(c) > start_radius)
-      return false;
-  }
-  return true;
-}
-
 size_t map_converges(struct Complex c)
 {
   struct Complex z = {0, 0};
-  struct Complex convergence_sample[convergence_cutoff];
   for (size_t n = 0; n < ITERATION_DEPTH; ++n) {
     z = map(z, c);
-    const size_t index = n % convergence_cutoff;
-    convergence_sample[index] = z;
-    if (n >= convergence_cutoff && sample_converges(convergence_sample, (index + 1) % convergence_cutoff))
+    if (norm_squared(z) > 4)
       return n;
   }
   return ITERATION_DEPTH + 1;
@@ -96,7 +76,7 @@ struct Complex cell_coordinate(size_t frame_index, double origin_x, double origi
 
 char shade(size_t convergence_count, size_t convergence_min, size_t convergence_max)
 {
-  static const char *shade_dict = "@$#*!=;:~-,.";
+  static const char *shade_dict = " .,-~:;=!*#$@";
   size_t shade_index = 0;
   if (convergence_max > convergence_min) {
     const size_t convergence_diff = convergence_max - convergence_min;
@@ -117,12 +97,8 @@ void update_frame(char frame[], double origin_x, double origin_y, size_t zoom)
     if (convergence_map[i] > convergence_max && convergence_map[i] < ITERATION_DEPTH + 1)
       convergence_max = convergence_map[i];
   }
-  for (int i = 0; i < buffer_size; ++i) {
-    if (convergence_map[i] > ITERATION_DEPTH)
-      frame[i] = cell_empty;
-    else
-      frame[i] = shade(convergence_map[i], convergence_min, convergence_max);
-  }
+  for (int i = 0; i < buffer_size; ++i)
+    frame[i] = shade(convergence_map[i], convergence_min, convergence_max);
 }
 
 void handle_user_input(char input, double *origin_x, double *origin_y, size_t *zoom) {
@@ -145,6 +121,10 @@ void handle_user_input(char input, double *origin_x, double *origin_y, size_t *z
     *zoom = 0;
     *origin_x = 0;
     *origin_y = 0;
+  } else if (input == 'c') {
+    *zoom = 15;
+    *origin_x = -0.7269;
+    *origin_y = 0.1889;
   }
 }
 
