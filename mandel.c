@@ -1,13 +1,14 @@
 #include <math.h>
 #include <stdbool.h>
 #include <stdio.h>
+#include <stdint.h>
 #include <stdlib.h>
 #include <sys/ioctl.h>
 #include <string.h>
 #include <termios.h>
 #include <unistd.h>
 
-#define ITERATION_DEPTH 1000
+#define ITERATION_DEPTH 3000
 
 struct Complex {
   double r;
@@ -18,9 +19,8 @@ int ws_row;
 int ws_col;
 int buffer_size;
 const char cell_empty = ' ';
-const char *illumination_dict = "@$#*!=;:~-,.";
 
-const size_t convergence_cutoff = ITERATION_DEPTH / 20;
+const size_t convergence_cutoff = ITERATION_DEPTH / 50;
 
 const struct Complex c_zero = {0, 0};
 
@@ -101,15 +101,35 @@ struct Complex cell_coordinate(size_t frame_index, double origin_x, double origi
   return coordinate;
 }
 
+char shade(size_t convergence_count, size_t convergence_min, size_t convergence_max)
+{
+  static const char *shade_dict = "@$#*!=;:~-,.";
+  size_t shade_index = 0;
+  if (convergence_max > convergence_min) {
+    const size_t convergence_diff = convergence_max - convergence_min;
+    shade_index = (convergence_count - convergence_min) * sizeof(shade_dict) / convergence_diff;
+  }
+
+  return shade_dict[shade_index];
+}
+
 void update_frame(char frame[], double origin_x, double origin_y, size_t zoom)
 {
-  const size_t illumincation_step_size = ITERATION_DEPTH / 12;
+  size_t convergence_map[buffer_size];
+  size_t convergence_max = 0;
+  size_t convergence_min = SIZE_MAX;
   for (int i = 0; i < buffer_size; ++i) {
-    size_t convergence_count = map_converges(cell_coordinate(i, origin_x, origin_y, zoom));
-    if (convergence_count > ITERATION_DEPTH) {
+    convergence_map[i] = map_converges(cell_coordinate(i, origin_x, origin_y, zoom));
+    if (convergence_map[i] < convergence_min)
+      convergence_min = convergence_map[i];
+    if (convergence_map[i] > convergence_max && convergence_map[i] < ITERATION_DEPTH + 1)
+      convergence_max = convergence_map[i];
+  }
+  for (int i = 0; i < buffer_size; ++i) {
+    if (convergence_map[i] > ITERATION_DEPTH) {
       frame[i] = cell_empty;
     } else {
-      frame[i] = illumination_dict[convergence_count * 12 / ITERATION_DEPTH];
+      frame[i] = shade(convergence_map[i], convergence_min, convergence_max);
     }
   }
 }
@@ -182,7 +202,7 @@ int main(int argc, char *argv[])
   clear_screen();
   double origin_x = 0;
   double origin_y = 0;
-  size_t zoom = 1;
+  size_t zoom = 0;
   update_frame(frame, origin_x, origin_y, zoom);
   draw_frame(frame);
   bool quit = false;
@@ -192,6 +212,7 @@ int main(int argc, char *argv[])
     if (input == 'q')
     {
       quit = true;
+      break;
     }
     else {
       handle_user_input(input, &origin_x, &origin_y, &zoom);
